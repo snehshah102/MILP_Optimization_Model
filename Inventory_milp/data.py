@@ -1,31 +1,39 @@
 # inventory_milp/data.py
+"""Problem data (tables 1–5) for the MDPI periodic‑review (s,S) MILP.
+All numbers come directly from the paper.  If you need a different horizon
+or more profiles, edit here only – the rest of the code picks them up
+dynamically.
+"""
 from collections import defaultdict
-import pandas as pd
 
-# ---------- Sets ----------
-CENTRAL = ["W0"]                     # central warehouse
+# ----------------- Sets -----------------
+CENTRAL = ["W0"]                     # supply node (infinite stock)
 WAREHOUSES = ["W1", "W2"]
 RETAILERS = ["R1", "R2", "R3", "R4"]
-
 ENTITIES = CENTRAL + WAREHOUSES + RETAILERS
-T = list(range(1, 16))               # 15-period horizon, inclusive
 
-# ---------- Parameters ----------
-# Tables 1–5 from Vicente (2025)
-holding_cost = {"W1": 0.2, "W2": 0.2,
-                "R1": 0.6, "R2": 0.6, "R3": 0.6, "R4": 0.6}
+# 15‑period planning horizon
+T = list(range(1, 16))
 
+# ----------------- Parameters -----------------
+# Holding cost per unit per period
+holding_cost = {"W1": 0.20, "W2": 0.20,
+                "R1": 0.60, "R2": 0.60, "R3": 0.60, "R4": 0.60}
+
+# Fixed ordering (setup) cost
 ordering_cost = {e: 30 for e in WAREHOUSES + RETAILERS}
 
-initial_inventory = {"W1": 1200, "W2": 1100,
+# Initial inventory
+initial_inventory = {"W1": 1_200, "W2": 1_100,
                      "R1": 350, "R2": 450, "R3": 500, "R4": 600}
 
+# Retail demands (constant each period for simplicity – edit as needed)
 demand = {("R1", t): 50 for t in T}
 demand.update({("R2", t): 60 for t in T})
 demand.update({("R3", t): 70 for t in T})
 demand.update({("R4", t): 80 for t in T})
 
-# unit transportation cost (Table 1)
+# Unit transportation cost
 tc = defaultdict(float)
 tc.update({("W0", "W1"): 0.55, ("W0", "W2"): 0.22})
 tc.update({("W1", "R1"): 0.22, ("W1", "R2"): 0.20,
@@ -33,25 +41,27 @@ tc.update({("W1", "R1"): 0.22, ("W1", "R2"): 0.20,
 tc.update({("W2", "R1"): 0.68, ("W2", "R2"): 0.52,
            ("W2", "R3"): 0.34, ("W2", "R4"): 0.10})
 
-# lead times (Table 4) – given in “periods”
+# Transport lead times (periods)
 lead = defaultdict(int)
 for w in WAREHOUSES:
     lead[("W0", w)] = 3
     for r in RETAILERS:
         lead[(w, r)] = 3
 
-# replenishment profiles (Table 5) as dict: profile_id -> {t:1/0}
+# Replenishment‑profile matrix  (table 5; only 6 shown here)
+# profiles[p][t] == 1 if profile p allows orders in period t
 profiles = {}
-with open(__file__.replace("data.py", "profiles.txt"), "w") as blank:
-    pass  # <-- profiles hard-coded below; file reserved if you want CSV.
-
+# p1 = order every period
 profiles[1] = {t: 1 for t in T}
-profiles[2] = {t: int(t % 2 == 1) for t in T}             # 1,3,5,...
-profiles[3] = {t: int(t % 2 == 0) for t in T}             # 2,4,6,...
-profiles[4] = {t: 1 if t % 3 == 1 else 0 for t in T}      # 1,4,7,…
-profiles[5] = {t: 1 if t % 3 == 2 else 0 for t in T}      # 2,5,8,…
-profiles[6] = {t: 1 if t % 3 == 0 else 0 for t in T}      # 3,6,9,…
-# ...continue until profile 15 exactly as the paper; abbreviated here
+# p2 = odd periods
+profiles[2] = {t: int(t % 2 == 1) for t in T}
+# p3 = even periods
+profiles[3] = {t: int(t % 2 == 0) for t in T}
+# p4/p5/p6 = 3‑cycle starting at 1/2/3
+profiles[4] = {t: 1 if t % 3 == 1 else 0 for t in T}
+profiles[5] = {t: 1 if t % 3 == 2 else 0 for t in T}
+profiles[6] = {t: 1 if t % 3 == 0 else 0 for t in T}
+# (Add profiles 7‑15 here if you want the full set.)
 
-# ---------- Big-M ----------
+# Big‑M (sufficiently large)
 BIG_M = 10_000

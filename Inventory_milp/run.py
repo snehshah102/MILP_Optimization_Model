@@ -1,48 +1,50 @@
 # inventory_milp/run.py
-import time, sys
-from Inventory_milp.model import build_base_model
-from Inventory_milp.init_heuristic import load_initial_solution
-from Inventory_milp.data import WAREHOUSES, RETAILERS
+"""CLI entry‑point: solves base vs capacity‑capped models with and without warm‑starts,
+then prints a timing table.
+"""
+import time
 from tabulate import tabulate
 
-def time_solve(model, label):
+from model import build_base_model
+from init_heuristic import load_initial_solution
+from data import WAREHOUSES, RETAILERS
+
+def solve_and_time(model, label):
     t0 = time.perf_counter()
     model.optimize()
     dt = time.perf_counter() - t0
-    gap = model.MIPGap if model.Status == 2 else None
-    print(f"[bold cyan]{label}[/]  status={model.Status}  "
-          f"obj={model.ObjVal:,.2f}  gap={gap:.4f}  time={dt:.2f}s")
+    obj = model.ObjVal if model.Status == 2 else None
+    print(f"[bold cyan]{label}[/]   status={model.Status}   obj={obj}   time={dt:.2f}s")
     return dt
 
 def main():
     results = []
 
-    # ---- (1) cold base model ----
+    # --- cold base ---
     m1 = build_base_model()
-    t1 = time_solve(m1, "Cold-start  base")
+    t1 = solve_and_time(m1, "Cold‑start base")
 
-    # ---- (2) warm base model ----
+    # --- warm base ---
     m2 = build_base_model()
     load_initial_solution(m2)
-    t2 = time_solve(m2, "Warm-start base")
+    t2 = solve_and_time(m2, "Warm‑start base")
 
-    # ---- (3) cold extended (capacity caps) ----
+    # --- cold extended (capacity caps) ---
     caps = {e: 1500 for e in WAREHOUSES} | {e: 900 for e in RETAILERS}
     m3 = build_base_model(capacity=caps)
-    t3 = time_solve(m3, "Cold-start  extended")
+    t3 = solve_and_time(m3, "Cold‑start extended")
 
-    # ---- (4) warm extended ----
+    # --- warm extended ---
     m4 = build_base_model(capacity=caps)
     load_initial_solution(m4)
-    t4 = time_solve(m4, "Warm-start extended")
+    t4 = solve_and_time(m4, "Warm‑start extended")
 
-    # ---- summary table ----
-    rows = [["Base", "cold", f"{t1:.2f}"],
-            ["Base", "warm", f"{t2:.2f}"],
-            ["Extended", "cold", f"{t3:.2f}"],
-            ["Extended", "warm", f"{t4:.2f}"]]
-    print("\n[bold]Solve-time comparison (seconds)[/]")
-    print(tabulate(rows, headers=["Model", "Init", "Time"], tablefmt="github"))
+    table = [["base", "cold", f"{t1:.2f}"],
+             ["base", "warm", f"{t2:.2f}"],
+             ["extended", "cold", f"{t3:.2f}"],
+             ["extended", "warm", f"{t4:.2f}"]]
+    print("\n[bold]Solve‑time comparison (s)[/]")
+    print(tabulate(table, headers=["model", "init", "time"], tablefmt="github"))
 
 if __name__ == "__main__":
     main()
