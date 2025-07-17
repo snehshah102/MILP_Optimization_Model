@@ -1,50 +1,52 @@
-# inventory_milp/run.py
-"""CLI entry‑point: solves base vs capacity‑capped models with and without warm‑starts,
-then prints a timing table.
 """
+Entry-point script:
+* Builds the MILP once (with capacity-caps extension already inside).
+* Solves twice — cold start vs. warm start.
+* Prints solve times side-by-side.
+"""
+
 import time
+from rich import print
 from tabulate import tabulate
 
 from model import build_base_model
 from init_heuristic import load_initial_solution
-from data import WAREHOUSES, RETAILERS
 
-def solve_and_time(model, label):
+# helper: solve & time
+def time_solve(model, label: str) -> float:
+    """
+    Optimize a Gurobi model and return elapsed wall-clock time (seconds).
+    """
     t0 = time.perf_counter()
     model.optimize()
-    dt = time.perf_counter() - t0
-    obj = model.ObjVal if model.Status == 2 else None
-    print(f"[bold cyan]{label}[/]   status={model.Status}   obj={obj}   time={dt:.2f}s")
-    return dt
+    elapsed = time.perf_counter() - t0
 
-def main():
-    results = []
+    status = model.Status            # 2 == OPTIMAL
+    obj = model.ObjVal if status == 2 else float("nan")
+    gap = model.MIPGap if status == 2 else float("nan")
 
-    # --- cold base ---
-    m1 = build_base_model()
-    t1 = solve_and_time(m1, "Cold‑start base")
+    print(f"[bold cyan]{label}[/]  status={status}  "
+          f"obj={obj:.2f}  gap={gap:.4f}  time={elapsed:.2f}s")
+    return elapsed
 
-    # --- warm base ---
-    m2 = build_base_model()
-    load_initial_solution(m2)
-    t2 = solve_and_time(m2, "Warm‑start base")
+def main() -> None:
+    rows = []
 
-    # --- cold extended (capacity caps) ---
-    caps = {e: 1500 for e in WAREHOUSES} | {e: 900 for e in RETAILERS}
-    m3 = build_base_model(capacity=caps)
-    t3 = solve_and_time(m3, "Cold‑start extended")
+    # 1) Cold start (Gurobi’s own default (none))
+    m_cold = build_base_model()
+    t_cold = time_solve(m_cold, "Cold-start")
+    rows.append(("cold", f"{t_cold:.2f}"))
 
-    # --- warm extended ---
-    m4 = build_base_model(capacity=caps)
-    load_initial_solution(m4)
-    t4 = solve_and_time(m4, "Warm‑start extended")
+    # 2) Warm start (The heuristic we injected (init_heuristic.py))
+    m_warm = build_base_model()
+    load_initial_solution(m_warm)
+    t_warm = time_solve(m_warm, "Warm-start")
+    rows.append(("warm", f"{t_warm:.2f}"))
 
-    table = [["base", "cold", f"{t1:.2f}"],
-             ["base", "warm", f"{t2:.2f}"],
-             ["extended", "cold", f"{t3:.2f}"],
-             ["extended", "warm", f"{t4:.2f}"]]
-    print("\n[bold]Solve‑time comparison (s)[/]")
-    print(tabulate(table, headers=["model", "init", "time"], tablefmt="github"))
+    # summary table
+    print("\n[bold]Solve-time comparison (seconds)[/]")
+    print(tabulate(rows, headers=["Init", "Time"], tablefmt="github"))
+
 
 if __name__ == "__main__":
     main()

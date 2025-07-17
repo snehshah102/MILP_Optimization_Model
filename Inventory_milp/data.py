@@ -1,12 +1,6 @@
-# inventory_milp/data.py
-"""Problem data (tables 1–5) for the MDPI periodic‑review (s,S) MILP.
-All numbers come directly from the paper.  If you need a different horizon
-or more profiles, edit here only – the rest of the code picks them up
-dynamically.
-"""
 from collections import defaultdict
 
-# ----------------- Sets -----------------
+# Sets
 CENTRAL = ["W0"]                     # supply node (infinite stock)
 WAREHOUSES = ["W1", "W2"]
 RETAILERS = ["R1", "R2", "R3", "R4"]
@@ -15,7 +9,7 @@ ENTITIES = CENTRAL + WAREHOUSES + RETAILERS
 # 15‑period planning horizon
 T = list(range(1, 16))
 
-# ----------------- Parameters -----------------
+# Parameters
 # Holding cost per unit per period
 holding_cost = {"W1": 0.20, "W2": 0.20,
                 "R1": 0.60, "R2": 0.60, "R3": 0.60, "R4": 0.60}
@@ -48,7 +42,7 @@ for w in WAREHOUSES:
     for r in RETAILERS:
         lead[(w, r)] = 3
 
-# Replenishment‑profile matrix  (table 5; only 6 shown here)
+# Replenishment‑profile matrix 
 # profiles[p][t] == 1 if profile p allows orders in period t
 profiles = {}
 # p1 = order every period
@@ -61,7 +55,19 @@ profiles[3] = {t: int(t % 2 == 0) for t in T}
 profiles[4] = {t: 1 if t % 3 == 1 else 0 for t in T}
 profiles[5] = {t: 1 if t % 3 == 2 else 0 for t in T}
 profiles[6] = {t: 1 if t % 3 == 0 else 0 for t in T}
-# (Add profiles 7‑15 here if you want the full set.)
+profiles[7]  = {t: 1 if (t-1) % 4 == 0 else 0 for t in T}   # 1,5,9,13
+profiles[8]  = {t: 1 if (t-2) % 4 == 0 else 0 for t in T}   # 2,6,10,14
+profiles[9]  = {t: 1 if (t-3) % 4 == 0 else 0 for t in T}   # 3,7,11,15
+profiles[10] = {t: 1 if  t      % 4 == 0 else 0 for t in T} # 4,8,12
+profiles[11] = {t: 1 if (t-1) % 5 == 0 else 0 for t in T}   # 1,6,11
+profiles[12] = {t: 1 if (t-2) % 5 == 0 else 0 for t in T}   # 2,7,12
+profiles[13] = {t: 1 if (t-3) % 5 == 0 else 0 for t in T}   # 3,8,13
+profiles[14] = {t: 1 if (t-4) % 5 == 0 else 0 for t in T}   # 4,9,14
+profiles[15] = {t: 1 if  t      % 5 == 0 else 0 for t in T} # 5,10,15
 
 # Big‑M (sufficiently large)
 BIG_M = 10_000
+
+capacity = {"W1":  900, "W2":  850,
+            "R1":  450, "R2":  500,
+            "R3":  550, "R4":  600}
