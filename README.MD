@@ -59,3 +59,5 @@ The solver’s optimal objective (10,636.20 with tighter caps) validates the mat
 3. Run the notebook (`Inventory_Project.ipynb`) in Jupyter or execute `run.py` via CLI for the demo.
 4. Results are printed as shown above, with the timing comparison table.
 ```
+
+## GenAI Announcement: ReadME file formatting and some code comments were generated using AI to provide more clarity to the reader.
