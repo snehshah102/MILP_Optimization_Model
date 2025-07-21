@@ -47,11 +47,8 @@ The solver’s optimal objective (10,636.20 with tighter caps) validates the mat
 *Include these four bullets verbatim in the “Proposed Extension” subsection of your write-up.*
 
 ## 5. Outputs and How to Quote Them in the Report
-
-```
-Cold-start  status=2  obj=10636.20  time=0.03s
-Warm-start  status=2  obj=10636.20  time=0.02s
-```
+- Cold-start  status=2  obj=10636.20  time=0.03s
+- Warm-start  status=2  obj=10636.20  time=0.02s
 
 - **Status 2**: OPTIMAL (per Gurobi docs), proving correctness.
 - **Identical Objectives**: Both starts converge to the global optimum, as expected.
@@ -63,12 +60,4 @@ Warm-start  status=2  obj=10636.20  time=0.02s
 2. Install dependencies: `pip install gurobipy`
 3. Run the notebook (`Inventory_Project.ipynb`) in Jupyter or execute `run.py` via CLI for the demo.
 4. Results are printed as shown above, with the timing comparison table.
-
-## Notes
-
-- The notebook ensures reproducibility for Dropbox submission.
-- For extended analysis, test with a 60-period horizon to highlight the warm-start’s impact.
-- The extension’s capacity constraints are defined in `data.py` and applied in `model.py`.
-
-For pricing or subscription details related to xAI’s products, visit [x.ai/grok](https://x.ai/grok) or [help.x.com](https://help.x.com/en/using-x/x-premium). For API inquiries, see [x.ai/api](https://x.ai/api).
 ```
