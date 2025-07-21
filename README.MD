@@ -1,5 +1,3 @@
-Below is the README syntax for the provided GitHub repository information, formatted in Markdown for easy copy-pasting. It covers the folder structure, model anatomy, warm-start heuristic, extension details, and outputs as requested, while maintaining clarity and conciseness.
-
 ```markdown
 # 434 Final Project - Inventory Optimization
 
