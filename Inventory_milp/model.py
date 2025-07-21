@@ -6,8 +6,6 @@ Small extension implemented for the assignment:
             inv[e,t]  ≤  capacity[e]
         (see capacity dict in data.py)
     •   This is coded near the bottom of build_base_model().
-
-All other files (data.py, init_heuristic.py, run.py) remain unchanged.
 """
 
 """Builds the base MILP (and an optional capacity‑capped extension) using Gurobi."""
