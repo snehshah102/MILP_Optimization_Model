@@ -11,6 +11,7 @@ from tabulate import tabulate
 
 from model import build_base_model
 from init_heuristic import load_initial_solution
+from gurobipy import GRB
 
 # helper: solve & time
 def time_solve(model, label: str) -> float:
@@ -19,6 +20,12 @@ def time_solve(model, label: str) -> float:
     """
     t0 = time.perf_counter()
     model.optimize()
+    if model.Status == GRB.INFEASIBLE:
+        model.computeIIS()
+        model.write("model_iis.ilp")
+        for c in model.getConstrs():
+            if c.IISConstr:
+                print("IIS constraint:", c.ConstrName)
     elapsed = time.perf_counter() - t0
 
     status = model.Status            # 2 == OPTIMAL
@@ -43,11 +50,11 @@ def main() -> None:
     rows.append(("base", "warm", f"{t_base_warm:.2f}"))
 
     # 2) Extended model (with capacity caps)
-    m_ext_cold = build_base_model(with_capacity_caps=True)
+    m_ext_cold = build_base_model(with_capacity_caps=True, with_emissions=True)
     t_ext_cold = time_solve(m_ext_cold, "Extended Cold-start")
     rows.append(("extended", "cold", f"{t_ext_cold:.2f}"))
 
-    m_ext_warm = build_base_model(with_capacity_caps=True)
+    m_ext_warm = build_base_model(with_capacity_caps=True, with_emissions=True)
     load_initial_solution(m_ext_warm)
     t_ext_warm = time_solve(m_ext_warm, "Extended Warm-start")
     rows.append(("extended", "warm", f"{t_ext_warm:.2f}"))

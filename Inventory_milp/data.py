@@ -68,6 +68,23 @@ profiles[15] = {t: 1 if  t      % 5 == 0 else 0 for t in T} # 5,10,15
 # Big‑M (sufficiently large)
 BIG_M = 10_000
 
-capacity = {"W1":  900, "W2":  850,
+capacity = {"W1":  1200, "W2":  1200,
             "R1":  450, "R2":  500,
             "R3":  550, "R4":  600}
+
+# Emission factors (kg CO2 per unit shipped)
+emission_factors = {
+    ("W0","W1"): 0.50,
+    ("W0","W2"): 0.30,
+    ("W1","R1"): 0.20,
+    ("W1","R2"): 0.18,
+    ("W1","R3"): 0.25,
+    ("W1","R4"): 0.28,
+    ("W2","R1"): 0.35,
+    ("W2","R2"): 0.30,
+    ("W2","R3"): 0.22,
+    ("W2","R4"): 0.15,
+}
+
+# Weight on emissions in the objective (€/kg CO2)
+emission_cost_weight = 0.25

@@ -1,8 +1,9 @@
 from gurobipy import Model, GRB, quicksum
 from data import (CENTRAL, WAREHOUSES, RETAILERS, ENTITIES, T, holding_cost,
-                  ordering_cost, initial_inventory, demand, tc, lead, profiles, BIG_M, capacity)
+                  ordering_cost, initial_inventory, demand, tc, lead, profiles, BIG_M, capacity, 
+                emission_factors, emission_cost_weight)
 
-def build_base_model(with_capacity_caps: bool = True) -> Model:
+def build_base_model(with_capacity_caps: bool = True, with_emissions: bool = False) -> Model:
     m = Model("PeriodicReview_sS")
     m.setParam("OutputFlag", 0)
 
@@ -25,12 +26,35 @@ def build_base_model(with_capacity_caps: bool = True) -> Model:
         quicksum(tc["W0", w] * ship_w0_w["W0", w, t] for w in WAREHOUSES for t in T) +
         quicksum(tc[w, r] * ship_w_r[w, r, t] for w in WAREHOUSES for r in RETAILERS for t in T)
     )
-    m.setObjective(
-        quicksum(ordering_cost[e] * y_order[e, t] for e in WAREHOUSES + RETAILERS for t in T) +
-        quicksum(holding_cost[e] * inv[e, t] for e in holding_cost for t in T) +
-        transport_cost,
-        GRB.MINIMIZE
+    obj = (
+        quicksum(ordering_cost[e]*y_order[e,t] for e in WAREHOUSES+RETAILERS for t in T)
+      + quicksum(holding_cost[e]*inv[e,t]     for e in holding_cost for t in T)
+      + transport_cost
     )
+
+
+    if with_emissions:
+        # 1) Track total emissions
+        total_emissions = m.addVar(name="total_emissions", lb=0)
+        # 2) Link it to all shipments
+        m.addConstr(
+            total_emissions
+            == quicksum(emission_factors[i,j] * ship_w0_w[i,j,t]
+                        for i,j in emission_factors
+                        if i=="W0" and j in WAREHOUSES
+                        for t in T)
+             + quicksum(emission_factors[w,r] * ship_w_r[w,r,t]
+                        for w,r in emission_factors
+                        if w in WAREHOUSES and r in RETAILERS
+                        for t in T),
+            name="emissions_calc"
+        )
+        # 3) No hard cap any more
+        #    (m.addConstr(total_emissions <= emission_budget, name="emission_cap"))
+        # 4) But we *do* penalize every kg CO₂ in the objective
+        obj += emission_cost_weight * total_emissions
+    
+    m.setObjective(obj, GRB.MINIMIZE)
 
     # Inventory balance – warehouses
     for w in WAREHOUSES:
