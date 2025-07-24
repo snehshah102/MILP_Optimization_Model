@@ -1,63 +1,137 @@
-```markdown
-# 434 Final Project - Inventory Optimization
+# PeriodicReview_sS Inventory Optimization
 
-This repository contains the code for the final project of ECE 434, implementing the inventory optimization model from Vicente (2025) with an extension for capacity constraints. The project uses a Mixed-Integer Linear Programming (MILP) model built with Gurobi's Python API, including a warm-start heuristic and a Jupyter Notebook for reproducibility.
+This project implements a periodic-review (s,S) inventory model for a multi-echelon supply chain using Gurobi. The code includes both a **base model** and an **extended model** with environmental considerations. A heuristic initializer provides warm-start solutions to accelerate convergence.
 
-## 1. Folder Structure & Role of Each File
+---
 
-| File                     | Purpose                                                                 | Key Things to Mention in the Report                                      |
-|--------------------------|-------------------------------------------------------------------------|------------------------------------------------------------------|
-| `data.py`                | Digitizes numerical inputs from Vicente (2025): sets, costs, lead-times, demand, and 15 replenishment profiles (Table 5). Includes capacity dictionary for the extension. | Original case-study data re-typed verbatim; additional capacity limits added for the extension. |
-| `model.py`               | Builds the base MILP (constraints 1–18 & 22–29 in the paper) plus the extension `inv_{e,t} ≤ cap_e`. Uses Gurobi’s Python API. | Matches paper equations symbol-for-symbol; one extra line adds realistic storage caps. |
-| `init_heuristic.py`      | Generates a feasible warm start: selects profile 1 for every node, issues one period-1 order to reach SSS level, writes `.Start` values. | Constructive heuristic → accepted by solver, cuts search effort.  |
-| `run.py`                 | CLI entry-point for demo/notebook. Builds two model copies, solves cold and warm, times each run, prints comparison table. | Required “compare solve time” experiment delivered in two lines of output. |
-| `Inventory_Project.ipynb` | Concatenates scripts into cells for reproducibility in a single document for Dropbox submission. | Meets “code must be in a Jupyter Notebook and linked” requirement. |
+## 📂 Project Structure
 
-## 2. Model Anatomy (Linking Code to Math)
-
-| Component         | Mathematical Symbol                              | Code Lines / Objects                              |
-|-------------------|-------------------------------------------------|-----------------------------------------------|
-| Sets             | `T, W, R`                                       | `T`, `WAREHOUSES`, `RETAILERS` in `data.py`    |
-| Variables        | `inv_{e,t}, ship, y_{e,t}, q_{e,t}, x_{e,p}`    | `inv`, `ship_w0_w`, `ship_w_r`, `y_order`, `orderQty`, `x_profile` in `model.py` |
-| Objective        | Ordering + holding + transport costs (eq. 19)   | `m.setObjective(...)` in `model.py`            |
-| Balances         | Eqs. (1)–(6)                                    | Two “inventory balance” for-loops in `model.py` |
-| (s,S) logic      | Eqs. (7)–(15)                                   | `orderQty` / `y_order` big-M block in `model.py` |
-| Profile linkage  | Eqs. (16)–(18)                                  | `x_allowed == Σ profile` constraint in `model.py` |
-| Extension        | `inv_{e,t} ≤ cap_e`                             | One for-loop labelled “small-extension” in `model.py` |
-
-The solver’s optimal objective (10,636.20 with tighter caps) validates the mathematical fidelity of the implementation, as every paper equation is reproduced.
-
-## 3. Warm-Start Heuristic and Why It’s Valid
-
-- **Profile Selection**: Chooses feasible profile (`profileChoice[e, 1] = 1`), allowing orders every period.
-- **Initial Order**: Single period-1 order raises inventory to the S-level, satisfying big-M constraints with zero slack.
-- **Shipments**: Fills shipments on unique arcs (W0→W for warehouses, W→R for retailers).
-- **Balance Equations**: All hold by construction (initial inventory + incoming – outgoing = new inventory).
-- **Solver Acceptance**: Supplies a complete feasible assignment, accepted by Gurobi as a MIP start. In the 15-period demo, it reduces solve time from 0.03s to 0.02s; larger instances show more significant improvements.
-
-## 4. Extension: Capacity Caps
-
-- **Managerial Rationale**: Real warehouses/stores have limited shelf space; `inv_{e,t} ≤ cap_e` models this, often inducing more frequent, smaller orders.
-- **Code Insertion**: One loop (`for e, cap in capacity.items()…`) before `m.update()` in `build_base_model()`.
-- **Effect on Results**: With caps below original S-levels, objective increases from 9,169 € (uncapped) to 10,636 € (capped) due to higher ordering/transport costs outweighing holding savings.
-- **Solve-Time Impact**: Minimal in this toy size (0.03s vs 0.02s), but extra constraints add nodes in larger runs—quantified in the report table.
-
-*Include these four bullets verbatim in the “Proposed Extension” subsection of your write-up.*
-
-## 5. Outputs and How to Quote Them in the Report
-- Cold-start  status=2  obj=10636.20  time=0.03s
-- Warm-start  status=2  obj=10636.20  time=0.02s
-
-- **Status 2**: OPTIMAL (per Gurobi docs), proving correctness.
-- **Identical Objectives**: Both starts converge to the global optimum, as expected.
-- **Timing Table**: Satisfies rubric’s “compare solve time” requirement. Include this table in the report or re-run on a 60-period horizon for a more pronounced gap.
-
-## Usage
-
-1. Clone the repository: `git clone https://github.com/snehshah102/434-Final-Project`
-2. Install dependencies: `pip install gurobipy`
-3. Run the notebook (`Inventory_Project.ipynb`) in Jupyter or execute `run.py` via CLI for the demo.
-4. Results are printed as shown above, with the timing comparison table.
+```
+Inventory_milp/            # Root folder
+├── data.py                # All input data and model parameters
+├── model.py               # Base (s,S) model builder
+├── run.py                 # Entry-point: solve base & extended models
+├── init_heuristic.py      # Heuristic loader for warm starts
+└── README.md              # This documentation file
 ```
 
-## GenAI Announcement: ReadME file formatting and some code comments were generated using AI to provide more clarity to the reader.
+---
+
+## 📝 data.py
+
+* **Sets**: `CENTRAL`, `WAREHOUSES`, `RETAILERS`, `ENTITIES`, planning horizon `T`.
+* **Parameters**:
+
+  * `holding_cost`, `ordering_cost`, `initial_inventory`
+  * `demand[(r,t)]` per retailer and period
+  * `tc[(i,j)]`: unit transport cost between nodes
+  * `lead[(i,j)]`: transport lead times
+  * `profiles[p][t]`: binary ordering profiles
+  * `BIG_M`: large constant for logical constraints
+  * `capacity[e]`: optional capacity caps per entity, defined as:
+
+```python
+capacity = {"W1":  1200, "W2":  1200,
+            "R1":  450,  "R2":  500,
+            "R3":  550,  "R4":  600}
+```
+
+* *Environmental*:
+
+  * `emission_factors[(i,j)]`: CO₂ per unit shipped
+  * `emission_cost_weight`: weight (€/kg CO₂) for emissions penalty
+
+This module centralizes all tunable inputs for easy modification.
+
+---
+
+## 🏗 model.py (Base Model)
+
+Defines `build_base_model(with_capacity_caps=True)`:
+
+1. **Decision Variables**
+
+   * `inv[e,t]`: inventory at entity `e` in period `t`
+   * `ship_w0_w["W0",w,t]`, `ship_w_r[w,r,t]`: shipment quantities
+   * `(s,S)` binary logic: `x_profile`, `x_allowed`, `x_required`, `y_order`
+   * `q[e,t]`: order quantity if `y_order[e,t] = 1`
+
+2. **Objective**: Minimize
+
+   * Setup cost: `ordering_cost * y_order`
+   * Holding cost: `holding_cost * inv`
+   * Transport cost: `tc * shipments`
+
+3. **Constraints**
+
+   * **Inventory balance** at warehouses and retailers
+   * **Initial & final inventory** equality
+   * **Profile enforcement**: each entity picks exactly one ordering profile
+   * **(s,S) policy** logic via Big‑M constraints
+   * **Shipment flows**: link orders `q[e,t]` to shipments
+---
+
+## 🌱 Extended Model (Emissions Penalty and Capacity Constraints)
+
+Instead of a hard emissions cap, we **penalize CO₂** directly in the objective by passing `with_emissions=True`:
+
+* **Additional variable**: `total_emissions` tracks total CO₂ across all arcs.
+* **Linking constraint**: sums `emission_factors * shipments` into `total_emissions`.
+* **Objective augmentation**: add `emission_cost_weight * total_emissions`.
+* **Capacity limits are active** in the extended model if `with_capacity_caps=True`. This limits the capacity of each Warehouse to a certain amount
+
+*No hard `emission_budget` constraint is applied*, so the solver balances transport & ordering cost against environmental impact.
+
+
+---
+
+## 🚀 init\_heuristic.py
+
+Contains `load_initial_solution(model: Model)` which:
+
+1. Computes a simple **fill-up heuristic** based on the base (s,S) targets or latest known solution.
+2. **Assigns `Var.Start`** attributes on `inv`, `ship` and `q` variables.
+3. Enables a **warm start** when solving the model to dramatically reduce MIP solve times.
+
+**Usage** in `run.py`:
+
+```python
+m = build_base_model(with_capacity_caps=False)
+load_initial_solution(m)
+m.optimize()
+```
+
+---
+
+## ▶ run.py (Entry‑Point)
+
+Solves four scenarios in sequence:
+
+1. **Base Cold‑start**: `with_capacity_caps=False`, no warm start
+2. **Base Warm‑start**: same but calls `load_initial_solution`
+3. **Extended Cold‑start**: `with_capacity_caps=True, with_emissions=True`
+4. **Extended Warm‑start**: extended + warm start
+
+Records and prints solve times for each.
+
+---
+
+## ⚙️ Installation & Requirements
+
+* Python 3.8+
+* Gurobi 9.x with academic license
+* Packages: `gurobipy`, `rich`, `tabulate`
+
+```bash
+pip install gurobipy rich tabulate
+```
+
+Place your Gurobi license file under `$HOME/gurobi.lic` or set `GRB_LICENSE_FILE` environment variable.
+
+---
+
+## GenAI announcement
+
+For our code, we used genAI to write some of the in code comments for more clairty as well as this readme files formatting to make it more clear and easy to read. 
+
+
