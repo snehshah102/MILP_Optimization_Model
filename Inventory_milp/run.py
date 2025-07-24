@@ -32,20 +32,29 @@ def time_solve(model, label: str) -> float:
 def main() -> None:
     rows = []
 
-    # 1) Cold start (Gurobi’s own default (none))
-    m_cold = build_base_model()
-    t_cold = time_solve(m_cold, "Cold-start")
-    rows.append(("cold", f"{t_cold:.2f}"))
+    # 1) Base model (no capacity caps)
+    m_base_cold = build_base_model(with_capacity_caps=False)
+    t_base_cold = time_solve(m_base_cold, "Base Cold-start")
+    rows.append(("base", "cold", f"{t_base_cold:.2f}"))
 
-    # 2) Warm start (The heuristic we injected (init_heuristic.py))
-    m_warm = build_base_model()
-    load_initial_solution(m_warm)
-    t_warm = time_solve(m_warm, "Warm-start")
-    rows.append(("warm", f"{t_warm:.2f}"))
+    m_base_warm = build_base_model(with_capacity_caps=False)
+    load_initial_solution(m_base_warm)
+    t_base_warm = time_solve(m_base_warm, "Base Warm-start")
+    rows.append(("base", "warm", f"{t_base_warm:.2f}"))
+
+    # 2) Extended model (with capacity caps)
+    m_ext_cold = build_base_model(with_capacity_caps=True)
+    t_ext_cold = time_solve(m_ext_cold, "Extended Cold-start")
+    rows.append(("extended", "cold", f"{t_ext_cold:.2f}"))
+
+    m_ext_warm = build_base_model(with_capacity_caps=True)
+    load_initial_solution(m_ext_warm)
+    t_ext_warm = time_solve(m_ext_warm, "Extended Warm-start")
+    rows.append(("extended", "warm", f"{t_ext_warm:.2f}"))
 
     # summary table
     print("\n[bold]Solve-time comparison (seconds)[/]")
-    print(tabulate(rows, headers=["Init", "Time"], tablefmt="github"))
+    print(tabulate(rows, headers=["Model", "Init", "Time"], tablefmt="github"))
 
 
 if __name__ == "__main__":

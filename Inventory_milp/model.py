@@ -18,7 +18,7 @@ from data import (CENTRAL, WAREHOUSES, RETAILERS, ENTITIES,
 
 from data import *
 
-def build_base_model() -> Model:
+def build_base_model(with_capacity_caps: bool = True) -> Model:
     # Optimize Gurobi Model
     m = Model("PeriodicReview_sS")
     m.setParam("OutputFlag", 0)   # silence solver unless you prefer verbose
@@ -118,8 +118,9 @@ def build_base_model() -> Model:
                 m.addConstr(ship_w_r[home, e, t] == q[e, t], name=f"qFlow_{e}_{t}")
 
     # optional capacity caps (small extension)
-    for e, cap in capacity.items():
-        for t in T:
-            m.addConstr(inv[e, t] <= cap, name=f"cap_{e}_{t}")
+    if with_capacity_caps:
+        for e, cap in capacity.items():
+            for t in T:
+                m.addConstr(inv[e, t] <= cap, name=f"cap_{e}_{t}")
     m.update()
     return m
