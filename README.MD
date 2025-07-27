@@ -2,6 +2,8 @@
 
 This project implements a periodic-review (s,S) inventory model for a multi-echelon supply chain using Gurobi. The code includes both a **base model** and an **extended model** with environmental considerations. A heuristic initializer provides warm-start solutions to accelerate convergence.
 
+Research Paper: https://www.mdpi.com/2079-8954/13/1/33 
+
 ---
 
 ## 📂 Project Structure
@@ -126,12 +128,8 @@ Records and prints solve times for each.
 pip install gurobipy rich tabulate
 ```
 
-Place your Gurobi license file under `$HOME/gurobi.lic` or set `GRB_LICENSE_FILE` environment variable.
-
----
-
 ## GenAI announcement
 
-For our code, we used genAI to write some of the in code comments for more clairty as well as this readme files formatting to make it more clear and easy to read. 
+For our code, we used genAI to write some of the in-code comments for more clarity, as well as this README file's formatting to make it more clear and easier to read. 
 
 
